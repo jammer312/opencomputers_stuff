@@ -1,0 +1,1 @@
+It is `/home/` dir on my (emulated) OpenComputers computer, here be libs and useful programs 
