@@ -51,6 +51,7 @@ for a, s in pairs(periphery) do
 end
 
 m.setStrength(400)
+m.broadcast(port, "gps_ready")
 
 --init done
 local request_timeout = 1
@@ -95,6 +96,8 @@ while true do
 			y = _y
 			z = _z
 			e.setData(table.concat({"port: " .. tostring(port), "key: " .. key, "anchor: {" .. table.concat({x, y, z}, ", ") .. "}"}, ", "))
+		elseif msg == wm then
+			m.send(ra, port, "gps_ready")
 		end
 	end
 end
