@@ -28,7 +28,7 @@ for side = 0, 5 do
 	pcall(close, side)
 end
 for side = 0, 5 do
-	ok = pcall(open, side)
+	local ok = pcall(open, side)
 	if ok then
 		m.broadcast(port, "gps_periphery_init", side)
 		close(side)

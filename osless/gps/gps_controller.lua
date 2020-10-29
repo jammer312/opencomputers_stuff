@@ -47,7 +47,7 @@ end
 
 m.setStrength(0)
 for a, s in pairs(periphery) do
-	m.send(a, 312, "gps_periphery_bind", a, s)
+	m.send(a, port, "gps_periphery_bind", a, s)
 end
 
 m.setStrength(400)
@@ -59,8 +59,8 @@ local requests = {}
 
 local function handle_request(from, role, dist)
 	local ct = ut()
-	if not requests[from] or requests[from].timeout <= ct then
-		requests[from] = {timeout = ct + request_timeout, counter = 0}
+	if not requests[from] or requests[from].deadline <= ct then
+		requests[from] = {deadline = ct + request_timeout, counter = 0}
 	end
 	requests[from][role] = dist
 	requests[from].counter = requests[from].counter + 1
