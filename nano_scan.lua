@@ -1,7 +1,7 @@
-local db_name = "nanomachines"
+local db_name_prefix = "nanomachines"
 
 local nano = require"nano"
-local db = require"db".load(db_name)
+local db = require"db".load(db_name_prefix.."_"..nano.address)
 
 local _, inputs = nano.op(nano.ops.getTotalInputCount)
 inputs = math.floor(inputs) --cast it to int
