@@ -1,6 +1,8 @@
 local db_name_prefix = "nanomachines"
 
 local nano = require"nano"
+require"component".modem.setStrength(2)
+
 local db = require"db".load(db_name_prefix.."_"..nano.address)
 
 local _, inputs = nano.op(nano.ops.getTotalInputCount)
@@ -45,8 +47,8 @@ if not db[inputs.." "..(inputs - 1)] then
 			print(i1, "harmful input, skipping")
 		else
 			nano.op(nano.ops.setInput, i1, true)
-			for i2 = 1, inputs do
-				if db[i1.." "..i2] or i1 == i2 then
+			for i2 = i1 + 1, inputs do
+				if db[i1.." "..i2] then
 				elseif is_bad(i2) then
 					print(i1, i2, "harmful input, skipping")
 				else
