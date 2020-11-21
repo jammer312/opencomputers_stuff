@@ -37,17 +37,14 @@ for addr in controller_list do
 		local cx, cy, cz = ctl.position()
 		local ox, oy, oz = cached.offset.x, cached.offset.y, cached.offset.z
 		local cur_ship_center = {cx - ox, cy - oy, cz - oz}
-			print("core:", cx, cy, cz)
 		local rdpx, rdpy, rdpz = swap_yz(ctl.dim_positive())
 		local rdnx, rdny, rdnz = swap_yz(ctl.dim_negative())
-		print("relative:", rdpx, rdnx, rdpy, rdny, rdpz, rdnz)
 		local dpx, dpy, dpz = ctlw.relative_to_global(rdpx, rdpy, rdpz, true)
 		local dnx, dny, dnz = ctlw.relative_to_global(-rdnx, -rdny, -rdnz, true)
 		if dpx < dnx then dpx, dnx = dnx, dpx end
 		if dpy < dny then dpy, dny = dny, dpy end
 		if dpz < dnz then dpz, dnz = dnz, dpz end
 		local cur_ship_size = {dpx, dnx, dpy, dny, dpz, dnz}
-			print("edges:", dpx, dnx, dpy, dny, dpz, dnz)
 		if not ship_center then
 			ship_center = cur_ship_center
 			ship_size = cur_ship_size
@@ -78,7 +75,6 @@ while new_controllers.size() > 0 do
 	if dpx < 0 then dpx, dnx = -dnx, -dpx end
 	if dpy < 0 then dpy, dny = -dny, -dpy end
 	if dpz < 0 then dpz, dnz = -dnz, -dpz end
-	print("dims:", dpx, dnx, dpy, dny, dpz, dnz)
 	ctl.dim_positive(dpx, dpy, dpz)
 	ctl.dim_negative(dnx, dny, dnz)
 	ctl.shipName(db.ship_name)
@@ -127,12 +123,15 @@ local function manage_pending_jumps()
 		error"Max jump distance exceeded"
 	end
 	local res, reason = ctl.movement_global(jump.x, jump.y, jump.z)
-	if not res and reason == "too small" then
-		wdmc.print("Skipping jump because it's too small", jump.x, jump.y, jump.z)
-		wdmc.ctls_ready.push(ctl)
-		return
+	if not res then
+		if reason == "too small" then
+			wdmc.print("Skipping jump because it's too small", jump.x, jump.y, jump.z)
+			wdmc.ctls_ready.push(ctl)
+			return
+		end
+		error(reason)
 	end
-	wdmc.jump()
+	ctl.jump()
 end
 
 local function cooled_down(ename, addr)

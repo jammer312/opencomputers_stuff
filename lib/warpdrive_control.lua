@@ -48,7 +48,7 @@ wc.wrap = function(addr, offset)
 	local movement = function(x, y, z)
 		local px, py, pz = prx.dim_positive()
 		local nx, ny, nz = prx.dim_negative()
-		local sx, xy, xz = 1 + px + nx, 1 + py + ny, 1 + pz + nz
+		local sx, sy, sz = 1 + px + nx, 1 + py + ny, 1 + pz + nz
 		if math.abs(x) < sx and math.abs(y) < sz and math.abs(z) < sy then return false, "too small" end
 		prx.movement(x, y, z)
 		return true
@@ -79,7 +79,7 @@ wc.wrap = function(addr, offset)
 		return rx + cx, ry + cy, rz + cz
 	end
 	ret.get_position = function()
-		return relative_to_global(0, 0, 0)
+		return ret.relative_to_global(0, 0, 0)
 	end
 
 	ret.jump = function()
@@ -97,14 +97,14 @@ wc.wrap = function(addr, offset)
 		if x and y and z then
 			return movement(x, y, z)
 		end
-		return movement()
+		return false, "invalid args"
 	end
 
 	ret.movement_global = function(x, y, z)
 		if x and y and z then
 			return movement(ret.global_to_relative(x, y, z))
 		end
-		return relative_to_global(movement())
+		return false, "invalid args"
 	end
 
 	return ret
