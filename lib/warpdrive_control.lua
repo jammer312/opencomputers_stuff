@@ -1,6 +1,6 @@
 local component = require"component"
 local event = require"event"
-local queue = require"queue"
+local structs = require"structs"
 
 local wc = {}
 wc.fly_height = 225
@@ -17,7 +17,7 @@ wc.commands = {
 setmetatable(wc.commands, {__index = function(tbl, key) error("No such command:", key) end})
 
 
-local jump_queue = queue.new()
+local jump_queue = structs.queue()
 local jump_catch_delay = nil
 local function jump_catcher(ename, addr, ...)
 	local args = {...}
@@ -44,6 +44,7 @@ wc.wrap = function(addr, offset)
 
 	local ret = {}
 	ret.offset = offset or {0, 0, 0}
+	ret.address = prx.address
 
 	local movement = function(x, y, z)
 		local px, py, pz = prx.dim_positive()
@@ -91,6 +92,13 @@ wc.wrap = function(addr, offset)
 	ret.jump_blocking = function()
 		ret.jump()
 		event.pull("core_jumped", addr)
+	end
+
+	ret.hyperdrive = function()
+		prx.command(wc.commands.hyperdrive)
+		prx.enable(true)
+		prx.movement(0, 0, 0)
+		require"computer".shutdown()
 	end
 
 	ret.movement_local = function(x, y, z)

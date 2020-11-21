@@ -1,6 +1,6 @@
 local component = require"component"
 local wdc = require"warpdrive_control"
-local queue = require"queue"
+local structs = require"structs"
 local event = require"event"
 local term_utils = require"term_utils"
 
@@ -23,7 +23,7 @@ if not db.initialized then
 		ship_center[3] + term_utils.read_number("Enter ship size +Z: "), ship_center[3] - term_utils.read_number("Enter ship size -Z: ")}
 end
 
-local new_controllers = queue.new()
+local new_controllers = structs.queue()
 
 local function swap_yz(x, y, z) return x, z, y end --needed because ship size uses different order
 local function vec_neg(x, y, z) return -x, -y, -z end
@@ -83,8 +83,8 @@ end
 
 local wdmc = {}
 wdmc.ctls = {}
-wdmc.ctls_ready = queue.new()
-wdmc.pending_jumps = queue.new()
+wdmc.ctls_ready = structs.set()
+wdmc.pending_jumps = structs.queue()
 wdmc.active = false
 wdmc.print = print
 local primary
@@ -109,7 +109,19 @@ wdmc.get_position = function()
 	return primary.get_position()
 end
 
+local expected_position = {wdmc.get_position()}
+
+wdmc.get_expected_position = function()
+	if not wdmc.active then
+		expected_position = {wdmc.get_position()}
+	end
+	return expected_position
+end
+
+local waiting_for_jump = false
+
 local function manage_pending_jumps()
+	if waiting_for_jump then return end
 	if wdmc.pending_jumps.size() < 1 then
 		wdmc.active = false
 		return
@@ -117,6 +129,10 @@ local function manage_pending_jumps()
 	if wdmc.ctls_ready.size() < 1 or not wdmc.active then return end
 	local jump = wdmc.pending_jumps.pop()
 	local ctl = wdmc.ctls_ready.pop()
+	if jump.hyperdrive then
+		ctl.hyperdrive()
+		error"didn't shutdown for whatever reason"
+	end
 	local cx, cy, cz = wdmc.get_position()
 	local rx, ry, rz = jump.x - cx, jump.y - cy, jump.z - cz
 	if math.abs(rx) > wdmc.max_jump_distance or math.abs(ry) > wdmc.max_jump_distance or math.abs(rz) > wdmc.max_jump_distance then
@@ -132,23 +148,41 @@ local function manage_pending_jumps()
 		error(reason)
 	end
 	ctl.jump()
+	waiting_for_jump = true
 end
 
 local function cooled_down(ename, addr)
 	if not wdmc.ctls[addr] then error"Caught event from unmanaged controller" end
 	wdmc.ctls_ready.push(wdmc.ctls[addr])
-	manage_pending_jumps()
+	if wdmc.ctls_ready.size() == 1 then
+		manage_pending_jumps()
+	end
+end
+
+local function core_jumped(ename, addr)
+	if waiting_for_jump then
+		waiting_for_jump = false
+		manage_pending_jumps()
+	end
 end
 
 event.listen("shipCoreCooldownDone", cooled_down)
-event.listen("core_jumped", manage_pending_jumps)
+event.listen("core_jumped", core_jumped)
 
 wdmc.queue_jump = function(x, y, z)
 	wdmc.pending_jumps.push({x = x, y = y, z = z})
+	expected_position = {x, y, z} --ignoring small jumps for now; big ones will crash anyway
 	if not wdmc.active then
 		wdmc.active = true
 		manage_pending_jumps()
 	end
 end
 
+wdmc.queue_hyperdrive = function()
+	wdmc.pending_jumps.push({hyperdrive = true})
+	if not wdmc.active then
+		wdmc.active = true
+		manage_pending_jumps()
+	end
+end
 return wdmc
