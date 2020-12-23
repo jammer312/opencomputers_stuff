@@ -16,18 +16,25 @@ end
 
 print"Done, proceeding to scan"
 
+local function ewrap(what, recover_on_fail)
+	status, err = pcall(what)
+	if not status and not recover_on_fail(err) then error"failed to recover" end
+end
+
 if not db[""..inputs] then
 	print"Scanning singular inputs"
 	for i = 1, inputs do
 		if db[""..i] then
 		else
-			nano.op(nano.ops.setInput, i, true)
-			local _, effects = nano.op(nano.ops.getActiveEffects)
-			db[""..i] = effects
-			if effects ~= "{}" then
-				print(i, effects)
-			end
-			nano.op(nano.ops.setInput, i, false)
+			ewrap(function()
+				nano.op(nano.ops.setInput, i, true)
+				local _, effects = nano.op(nano.ops.getActiveEffects)
+				db[""..i] = effects
+				if effects ~= "{}" then
+					print(i, effects)
+				end
+				nano.op(nano.ops.setInput, i, false)
+			end, function(err) db[""..i] = "?harm?"; return false end)
 		end
 	end
 	print"Done"
@@ -52,13 +59,15 @@ if not db[inputs.." "..(inputs - 1)] then
 				elseif is_bad(i2) then
 					print(i1, i2, "harmful input, skipping")
 				else
-					nano.op(nano.ops.setInput, i2, true)
-					local _, effects = nano.op(nano.ops.getActiveEffects)
-					db[i1.." "..i2] = effects
-					if effects ~= "{}" then
-						print(i1, i2, effects)
-					end
-					nano.op(nano.ops.setInput, i2, false)
+					ewrap(function()
+						nano.op(nano.ops.setInput, i2, true)
+						local _, effects = nano.op(nano.ops.getActiveEffects)
+						db[i1.." "..i2] = effects
+						if effects ~= "{}" then
+							print(i1, i2, effects)
+						end
+						nano.op(nano.ops.setInput, i2, false)
+					end, function(err) db[i1..""..i2] = "?harm?"; return false end)
 				end
 			end
 			nano.op(nano.ops.setInput, i1, false)

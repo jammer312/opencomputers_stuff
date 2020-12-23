@@ -5,6 +5,7 @@ local structs = require"structs"
 local wc = {}
 wc.fly_height = 225
 wc.min_jump_interval = 1 --won't jump more often than that
+wc.ship_orientation = nil
 
 wc.commands = {
 	offline = "offline",
@@ -43,7 +44,7 @@ wc.wrap = function(addr, offset)
 	prx.command(wc.commands.offline)
 
 	local ret = {}
-	ret.offset = offset or {0, 0, 0}
+	ret.offset = offset or {x = 0, y = 0, z = 0}
 	ret.address = prx.address
 
 	local movement = function(x, y, z)
@@ -68,6 +69,7 @@ wc.wrap = function(addr, offset)
 		end
 		return rx * ox + rz * oz, ry, -(rx * oz) + (rz * ox) 
 	end
+
 	ret.relative_to_global = function(rx, ry, rz, ignore_offset)
 		local ox, oy, oz = prx.getOrientation()
 		local cx, cy, cz = prx.position()
@@ -79,6 +81,7 @@ wc.wrap = function(addr, offset)
 		end
 		return rx + cx, ry + cy, rz + cz
 	end
+
 	ret.get_position = function()
 		return ret.relative_to_global(0, 0, 0)
 	end
@@ -101,6 +104,11 @@ wc.wrap = function(addr, offset)
 		require"computer".shutdown()
 	end
 
+	ret.disable = function()
+		prx.command(wc.commands.offline)
+		prx.enable(false)
+	end
+
 	ret.movement_local = function(x, y, z)
 		if x and y and z then
 			return movement(x, y, z)
@@ -115,6 +123,44 @@ wc.wrap = function(addr, offset)
 		return false, "invalid args"
 	end
 
+	ret.ship_to_core = function(x, y, z)
+		if not wc.ship_orientation then error"ship orientation undefined" end
+		local ox, oy, oz = wc.ship_orientation.x, wc.ship_orientation.y, wc.ship_orientation.z
+		x, y, z = x * ox - z * oz, y, (x * oz) + (z * ox)
+		ox, oy, oz = prx.getOrientation()
+		x = x - ret.offset.x
+		y = y - ret.offset.y
+		z = z - ret.offset.z
+		return x * ox + z * oz, y, -(x * oz) + (z * ox)
+	end
+
+	local function vecneg(x, y, z) return -x, -y, -z end
+
+	ret.set_size_ship = function(px, nx, py, ny, pz, nz)
+		px, py, pz = ret.ship_to_core(px, py, pz)
+		nx, ny, nz = vecneg(ret.ship_to_core(vecneg(nx, ny, nz)))
+		local function size_orient(p, n)
+			if p < 0 and n > 0 or p > 0 and n < 0 then error"core out of bounds" end
+			if p < 0 or n < 0 then return -n, -p end
+			return p, n
+		end
+		px, nx = size_orient(px, nx)
+		py, ny = size_orient(py, ny)
+		pz, nz = size_orient(pz, nz)
+		prx.dim_positive(px, pz, py)
+		prx.dim_negative(nx, nz, ny)
+	end
+
+	ret.fold = function()
+		prx.dim_positive(0, 0, 0)
+		prx.dim_negative(0, 0, 0)
+	end
+
+	ret.coorient_ship = function()
+		local ox, oy, oz = prx.getOrientation()
+		wc.ship_orientation = {x = ox, y = oy, z = oz}
+		return
+	end
 	return ret
 end
 

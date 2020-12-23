@@ -28,6 +28,8 @@ local new_controllers = structs.queue()
 local function swap_yz(x, y, z) return x, z, y end --needed because ship size uses different order
 local function vec_neg(x, y, z) return -x, -y, -z end
 
+--TODO: remake stuff so it uses new set_size() and get_size() methods
+
 local controller_list = component.list"warpdriveShipController"
 for addr in controller_list do
 	if db[addr] then
@@ -119,15 +121,22 @@ wdmc.get_expected_position = function()
 end
 
 local waiting_for_jump = false
+local last_ctl
+local last_jump
 
-local function manage_pending_jumps()
+local function manage_pending_jumps(retry)
 	if waiting_for_jump then return end
 	if wdmc.pending_jumps.size() < 1 then
 		wdmc.active = false
 		return
 	end
 	if wdmc.ctls_ready.size() < 1 or not wdmc.active then return end
-	local jump = wdmc.pending_jumps.pop()
+	local jump
+	if retry then
+		jump = last_jump
+	else
+		jump = wdmc.pending_jumps.pop()
+	end
 	local ctl = wdmc.ctls_ready.pop()
 	if jump.hyperdrive then
 		ctl.hyperdrive()
@@ -148,6 +157,8 @@ local function manage_pending_jumps()
 		error(reason)
 	end
 	ctl.jump()
+	last_ctl = ctl
+	last_jump = jump
 	waiting_for_jump = true
 end
 
@@ -185,4 +196,12 @@ wdmc.queue_hyperdrive = function()
 		manage_pending_jumps()
 	end
 end
+
+wdmc.cycle = function()
+	if not last_ctl or not waiting_for_jump then error"Unexpected cycle()" end
+	last_ctl.disable()
+	waiting_for_jump = false
+	manage_pending_jumps(true)
+end
+
 return wdmc
